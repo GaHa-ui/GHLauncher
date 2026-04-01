@@ -1,0 +1,61 @@
+name: Build IPA
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g. 1.0.0)'
+        required: false
+        default: '1.0.0'
+
+jobs:
+  build:
+    name: Build IPA
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app
+
+      - name: Build with Swift PM
+        run: |
+          swift build -c release \
+            -Xswiftc "-sdk" -Xswiftc "$(xcrun --sdk iphoneos --show-sdk-path)" \
+            -Xswiftc "-target" -Xswiftc "arm64-apple-ios17.0"
+          echo "Build done"
+          ls -la .build/release/GHLauncher
+
+      - name: Create .app bundle
+        run: |
+          BINARY=".build/release/GHLauncher"
+          APP="Payload/GHLauncher.app"
+          mkdir -p "$APP"
+          cp "$BINARY" "$APP/GHLauncher"
+          chmod +x "$APP/GHLauncher"
+
+          # Copy Info.plist
+          cp GHLauncher/Info.plist "$APP/Info.plist"
+
+          # Copy Assets.xcassets as a compiled .car would require actool, skip for now
+          # Copy Resources folder if any
+          if [ -d "GHLauncher/Resources" ]; then
+            cp -r GHLauncher/Resources "$APP/"
+          fi
+
+          # Sign with ad-hoc identity
+          codesign -s - --force --all-architectures "$APP"
+
+          # Zip into Payload
+          zip -r GHLauncher.ipa Payload
+          rm -rf Payload
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: GHLauncher.ipa
+          path: GHLauncher.ipa
+          retention-days: 90

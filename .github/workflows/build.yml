@@ -1,54 +1,35 @@
 name: Build IPA
-
 on:
   push:
     branches: [main]
   workflow_dispatch:
-
 jobs:
   build:
-    name: Build IPA
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
-
       - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode_16.app || sudo xcode-select -s /Applications/Xcode.app
-
-      - name: Install xcodegen
-        run: brew install xcodegen
-
-      - name: Generate Xcode project
         run: |
-          cd $GITHUB_WORKSPACE
-          xcodegen generate
-          echo "Generated:"
-          ls -la GHLauncher.xcodeproj/
-
-      - name: Build with xcodebuild
+          XCODE=$(ls -d /Applications/Xcode*.app | tail -1)
+          sudo xcode-select -s "$XCODE"
+      - name: Build
         run: |
-          xcodebuild clean build \
-            -project GHLauncher.xcodeproj \
-            -scheme GHLauncher \
-            -configuration Release \
+          xcodebuild -scheme GHLauncher \
             -destination "generic/platform=iOS" \
-            -derivedDataPath DerivedData \
+            -configuration Release \
+            -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
-            | xcpretty || true
-
-      - name: Package IPA
+            ONLY_ACTIVE_ARCH=NO \
+            build 2>&1 | tail -60
+      - name: Package
         run: |
-          APP=$(find DerivedData -name "GHLauncher.app" -type d | head -1)
-          echo "Found .app: $APP"
-          mkdir -p Payload
-          cp -r "$APP" Payload/
-          codesign --remove-signature Payload/GHLauncher.app 2>/dev/null || true
-          zip -r GHLauncher.ipa Payload
-          ls -lh GHLauncher.ipa
-          rm -rf Payload
-
+          APP=$(find build -name "GHLauncher.app" -type d | head -1)
+          echo "App: $APP"
+          ls -la "$APP" 2>/dev/null || echo "Not found"
+          [ -d "$APP" ] && mkdir -p Payload && cp -r "$APP" Payload/ && zip -r GHLauncher.ipa Payload
+          ls -lh GHLauncher.ipa 2>/dev/null || echo "No IPA"
       - uses: actions/upload-artifact@v4
         with:
           name: GHLauncher.ipa

@@ -7,54 +7,57 @@ on:
 jobs:
   build:
     name: Build IPA
-    runs-on: macos-13
+    runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build with swift build
+      - name: Show Xcode versions
+        run: ls /Applications/
+
+      - name: Select latest Xcode
         run: |
-          swift build -c release \
-            -Xswiftc "-sdk" \
-            -Xswiftc "$(xcrun --sdk iphoneos --show-sdk-path)" \
-            -Xswiftc "-target" \
-            -Xswiftc "arm64-apple-ios15.0"
+          XCODE=$(ls -d /Applications/Xcode*.app | tail -1)
+          echo "Using $XCODE"
+          sudo xcode-select -s "$XCODE"
+
+      - name: Create minimal xcodeproj
+        run: |
+          mkdir -p GHLauncher.xcodeproj
+          cat > GHLauncher.xcodeproj/project.pbxproj << 'PBX'
+          PBXFileReference;
+          rootObject = MAIN /* Project object */;
+        PBX
+          // Use a proper approach: create the project via xcodebuild init
+          # Instead, try swift package generate-xcodeproj
+          swift package generate-xcodeproj \
+            --xcconfig-overrides "project.yml" \
+            --build-path xcodeproj_build 2>/dev/null || \
+          swift package generate-xcodeproj 2>/dev/null || \
+          echo "gen-xcodeproj failed, trying alternative..."
+
+      - name: Build with xcodebuild
+        run: |
+          # Try direct xcodebuild with SPM package
+          xcodebuild -scheme GHLauncher \
+            -destination "generic/platform=iOS" \
+            -configuration Release \
+            build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY="" \
+            2>&1 | tail -100
 
       - name: Package IPA
         run: |
-          BINARY=$(find .build -name "GHLauncher" -type f ! -name "*.swiftmodule" | head -1)
-          echo "Binary: $BINARY"
-          mkdir -p Payload/GHLauncher.app
-          cp "$BINARY" Payload/GHLauncher.app/GHLauncher
-          cat > Payload/GHLauncher.app/Info.plist << 'PLIST'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0"><dict>
-          <key>CFBundleExecutable</key><string>GHLauncher</string>
-          <key>CFBundleIdentifier</key><string>com.ghlauncher.app</string>
-          <key>CFBundleName</key><string>GHLauncher</string>
-          <key>CFBundleVersion</key><string>1</string>
-          <key>CFBundleShortVersionString</key><string>1.0</string>
-          <key>CFBundlePackageType</key><string>APPL</string>
-          <key>LSRequiresIPhoneOS</key><true/>
-          <key>UIDeviceFamily</key><array><integer>1</integer><integer>2</integer></array>
-          <key>UIApplicationSceneManifest</key><dict>
-          <key>UIApplicationSupportsMultipleScenes</key><false/>
-          </dict>
-          <key>UILaunchScreen</key><dict>
-          <key>UIColorName</key><string></string>
-          </dict>
-          <key>UISupportedInterfaceOrientations</key><array>
-          <string>UIInterfaceOrientationPortrait</string>
-          <string>UIInterfaceOrientationLandscapeLeft</string>
-          <string>UIInterfaceOrientationLandscapeRight</string>
-          </array>
-          </dict></plist>
-          PLIST
-          codesign --force --sign - Payload/GHLauncher.app
+          APP=$(find build -name "GHLauncher.app" -type d 2>/dev/null | head -1)
+          if [ -z "$APP" ]; then
+            APP=$(find . -name "GHLauncher.app" -type d 2>/dev/null | grep -v DerivedData | head -1)
+          fi
+          echo "Found: $APP"
+          mkdir -p Payload
+          cp -r "$APP" Payload/
+          codesign --remove-signature Payload/GHLauncher.app 2>/dev/null || true
           zip -r GHLauncher.ipa Payload
           ls -lh GHLauncher.ipa
-          rm -rf Payload
-
       - uses: actions/upload-artifact@v4
         with:
           name: GHLauncher.ipa

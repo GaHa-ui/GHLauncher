@@ -3,41 +3,224 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
-
 jobs:
   build:
-    name: Build IPA
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
-
-      - name: Show Xcode versions
-        run: ls /Applications/
-
-      - name: Select latest Xcode
+      - name: Select Xcode
         run: |
           XCODE=$(ls -d /Applications/Xcode*.app | tail -1)
-          echo "Using $XCODE"
           sudo xcode-select -s "$XCODE"
-
-      - name: Create minimal xcodeproj
+      - name: Generate Xcode project
         run: |
-          mkdir -p GHLauncher.xcodeproj
-          cat > GHLauncher.xcodeproj/project.pbxproj << 'PBX'
-          PBXFileReference;
-          rootObject = MAIN /* Project object */;
-        PBX
-          // Use a proper approach: create the project via xcodebuild init
-          # Instead, try swift package generate-xcodeproj
-          swift package generate-xcodeproj \
-            --xcconfig-overrides "project.yml" \
-            --build-path xcodeproj_build 2>/dev/null || \
-          swift package generate-xcodeproj 2>/dev/null || \
-          echo "gen-xcodeproj failed, trying alternative..."
+          python3 << 'PY'
+          import uuid
+          # Generate a working project.pbxproj
+          # This is a minimal but functional iOS project
+          project_name = "GHLauncher"
+          app_name = "GHLauncher"
+          bundle_id = "com.ghlauncher.app"
+          src_dir = "GHLauncher"
 
-      - name: Build with xcodebuild
+          # Collect source files
+          import os
+          swift_files = []
+          for root, dirs, files in os.walk(src_dir):
+              for f in files:
+                  if f.endswith(".swift"):
+                      swift_files.append(os.path.join(root, f))
+
+          # Resource files
+          resource_files = []
+          for root, dirs, files in os.walk(src_dir):
+              for f in files:
+                  if f.endswith(".json") or "Assets.xcassets" in root:
+                      resource_files.append(os.path.join(root, f))
+
+          def uid():
+              return uuid.uuid4().hex[:24].upper()
+
+          # Main references
+          main_target = uid()
+          main_group = uid()
+          build_files = uid()
+          build_phases_sources = uid()
+          build_phases_resources = uid()
+          build_phases_frameworks = uid()
+          build_config_list = uid()
+          debug_config = uid()
+          release_config = uid()
+          proj_object = uid()
+          products_group = uid()
+          product_ref = uid()
+          frameworks_build_phase = uid()
+          frameworks_group = uid()
+          build_file_main = uid()
+
+          print(f"""// !$*UTF8*$!
+{{
+archiveVersion = 1;
+classes = {{
+}};
+objectVersion = 56;
+objects = {{
+
+/* Begin PBXBuildFile section */
+{build_file_main} /* {app_name} in Sources */ = {{isa = PBXBuildFile; fileRef = {product_ref}; }};
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+{product_ref} /* {app_name}.app */ = {{isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "{app_name}.app"; sourceTree = BUILT_PRODUCTS_DIR; }};
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+{build_phases_frameworks} /* Frameworks */ = {{
+isa = PBXFrameworksBuildPhase;
+buildActionMask = 2147483647;
+files = (
+);
+runOnlyForDeploymentPostprocessing = 0;
+}};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+{main_group} = {{
+isa = PBXGroup;
+children = (
+{products_group},
+);
+sourceTree = "<group>";
+}};
+{products_group} /* Products */ = {{
+isa = PBXGroup;
+children = (
+{product_ref} /* {app_name}.app */,
+);
+name = Products;
+sourceTree = "<group>";
+}};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+{main_target} /* {app_name} */ = {{
+isa = PBXNativeTarget;
+buildConfigurationList = {build_config_list} /* Build configuration list for PBXNativeTarget "{app_name}" */;
+buildPhases = (
+{build_phases_sources} /* Sources */,
+{build_phases_frameworks} /* Frameworks */,
+);
+buildRules = (
+);
+dependencies = (
+);
+name = "{app_name}";
+productName = "{app_name}";
+productReference = {product_ref} /* {app_name}.app */;
+productType = "com.apple.product-type.application";
+}};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+{proj_object} /* Project object */ = {{
+isa = PBXProject;
+attributes = {{
+BuildIndependentTargetsInParallel = 1;
+LastSwiftUpdateCheck = 1540;
+LastUpgradeCheck = 1540;
+TargetAttributes = {{
+{main_target} = {{
+CreatedOnToolsVersion = 15.4;
+}};
+}};
+}};
+buildConfigurationList = {build_config_list} /* Build configuration list for PBXProject "{project_name}" */;
+compatibilityVersion = "Xcode 15.0";
+developmentRegion = en;
+hasScannedForEncodings = 0;
+mainGroup = {main_group};
+productRefGroup = {products_group} /* Products */;
+projectDirPath = "";
+projectRoot = "";
+targets = (
+{main_target} /* {app_name} */,
+);
+}};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+{build_phases_sources} /* Sources */ = {{
+isa = PBXSourcesBuildPhase;
+buildActionMask = 2147483647;
+files = (
+);
+runOnlyForDeploymentPostprocessing = 0;
+}};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+{debug_config} /* Debug */ = {{
+isa = XCBuildConfiguration;
+buildSettings = {{
+ALWAYS_SEARCH_USER_PATHS = NO;
+CLANG_ENABLE_MODULES = YES;
+CODE_SIGNING_ALLOWED = NO;
+CODE_SIGNING_REQUIRED = NO;
+CODE_SIGN_IDENTITY = "-";
+"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "-";
+DEFINES_MODULE = YES;
+IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+PRODUCT_BUNDLE_IDENTIFIER = {bundle_id};
+PRODUCT_NAME = "$(TARGET_NAME)";
+SKIP_INSTALL = YES;
+SWIFT_EMIT_LOC_STRINGS = YES;
+SWIFT_VERSION = 5.9;
+TARGETED_DEVICE_FAMILY = "1,2";
+}};
+name = Debug;
+}};
+{release_config} /* Release */ = {{
+isa = XCBuildConfiguration;
+buildSettings = {{
+ALWAYS_SEARCH_USER_PATHS = NO;
+CLANG_ENABLE_MODULES = YES;
+CODE_SIGNING_ALLOWED = NO;
+CODE_SIGNING_REQUIRED = NO;
+CODE_SIGN_IDENTITY = "-";
+"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "-";
+DEFINES_MODULE = YES;
+IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+PRODUCT_BUNDLE_IDENTIFIER = {bundle_id};
+PRODUCT_NAME = "$(TARGET_NAME)";
+SKIP_INSTALL = YES;
+SWIFT_EMIT_LOC_STRINGS = YES;
+SWIFT_VERSION = 5.9;
+TARGETED_DEVICE_FAMILY = "1,2";
+}};
+name = Release;
+}};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+{build_config_list} /* Build configuration list for PBXProject "{project_name}" */ = {{
+isa = XCConfigurationList;
+buildConfigurations = (
+{debug_config} /* Debug */,
+{release_config} /* Release */,
+);
+defaultConfigurationIsVisible = 0;
+defaultConfigurationName = Release;
+}};
+/* End XCConfigurationList section */
+
+}};
+rootObject = {proj_object} /* Project object */;
+}}
+""")
+          PY
+
+      - name: Build
         run: |
-          # Try direct xcodebuild with SPM package
           xcodebuild -scheme GHLauncher \
             -destination "generic/platform=iOS" \
             -configuration Release \
@@ -46,13 +229,10 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             2>&1 | tail -100
 
-      - name: Package IPA
+      - name: Package
         run: |
           APP=$(find build -name "GHLauncher.app" -type d 2>/dev/null | head -1)
-          if [ -z "$APP" ]; then
-            APP=$(find . -name "GHLauncher.app" -type d 2>/dev/null | grep -v DerivedData | head -1)
-          fi
-          echo "Found: $APP"
+          [ -z "$APP" ] && APP=$(find . -name "GHLauncher.app" -type d | grep -v DerivedData | head -1)
           mkdir -p Payload
           cp -r "$APP" Payload/
           codesign --remove-signature Payload/GHLauncher.app 2>/dev/null || true

@@ -62,7 +62,7 @@ class HomeViewModel: ObservableObject {
             )
 
             // Update settings
-            let settings = AppSettingsViewModel.shared ?? AppSettingsViewModel()
+            let settings = AppSettingsViewModel.shared
             settings.selectedVersion = selectedVersion
             settings.username = username
             settings.offlineMode = offlineMode

@@ -3,23 +3,15 @@ import SwiftUI
 struct HomeView: View {
     @StateObject private var viewModel = HomeViewModel()
     @EnvironmentObject var settings: AppSettingsViewModel
+    @State private var showingError = false
 
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
-                // Header
                 headerSection
-
-                // Version picker
                 versionPickerSection
-
-                // Nickname & Offline
                 accountSection
-
-                // Play button
                 playButtonSection
-
-                // Recent projects
                 recentProjectsSection
             }
             .padding()
@@ -30,9 +22,10 @@ struct HomeView: View {
             await viewModel.loadVersions()
             viewModel.loadRecentProjects()
         }
+        .onChange(of: viewModel.launchError) { _ in
+            if viewModel.launchError != nil { showingError = true }
+        }
     }
-
-    // MARK: - Sections
 
     private var headerSection: some View {
         VStack(spacing: 4) {
@@ -110,17 +103,15 @@ struct HomeView: View {
             .frame(maxWidth: .infinity)
             .padding(.vertical, 16)
             .background(
-                viewModel.isLaunching
-                    ? LinearGradient(colors: [.green, .green], startPoint: .leading, endPoint: .trailing)
-                        .opacity(0.7)
-                    : LinearGradient(colors: [.green, .green.opacity(0.8)], startPoint: .leading, endPoint: .trailing)
+                LinearGradient(colors: [.green, .green.opacity(0.8)], startPoint: .leading, endPoint: .trailing)
+                    .opacity(viewModel.isLaunching ? 0.7 : 1.0)
             )
             .foregroundStyle(.white)
             .clipShape(Capsule())
         }
         .disabled(viewModel.isLaunching)
         .shadow(color: .green.opacity(0.4), radius: 12, x: 0, y: 6)
-        .alert("Ошибка", isPresented: .constant(viewModel.launchError != nil)) {
+        .alert("Ошибка", isPresented: $showingError) {
             Button("OK") { viewModel.launchError = nil }
         } message: {
             Text(viewModel.launchError ?? "")
@@ -158,15 +149,12 @@ struct HomeView: View {
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                             }
-
                             Spacer()
-
                             if let lastPlayed = profile.lastPlayed {
                                 Text(lastPlayed.formatted(date: .abbreviated, time: .shortened))
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
-
                             Image(systemName: "chevron.right")
                                 .font(.caption.bold())
                                 .foregroundStyle(.secondary)

@@ -3,19 +3,22 @@ options:
   bundleId: com.ghlauncher.app
   deploymentTarget:
     iOS: "17.0"
-  xcodeVersion: "1540"
+  generateEmptyDirectories: true
+  xcodeVersion: "15.0"
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    DEVELOPMENT_TEAM: "" # Для локальной подписи оставь пустым
 
 targets:
   GHLauncher:
     type: application
-    platform: iOS
     sources:
       - GHLauncher
     settings:
       base:
         INFOPLIST_FILE: GHLauncher/Info.plist
-        PRODUCT_BUNDLE_IDENTIFIER: com.ghlauncher.app
         CODE_SIGN_IDENTITY: "-"
         CODE_SIGNING_REQUIRED: NO
         LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/Frameworks"
-        SWIFT_VERSION: "5.9"

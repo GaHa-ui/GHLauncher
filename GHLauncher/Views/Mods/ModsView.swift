@@ -192,7 +192,7 @@ struct ModsView: View {
 struct ModCard: View {
     let mod: ModrinthProject
     let onDownload: () -> Void
-    @EnvironmentObject var modsVM: ModsViewModel?
+    @EnvironmentObject var modsVM: ModsViewModel
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {

@@ -5,7 +5,7 @@ struct SettingsView: View {
     @EnvironmentObject var settings: AppSettingsViewModel
 
     init() {
-        _viewModel = StateObject(wrappedValue: SettingsViewModel(settings: AppSettingsViewModel.shared ?? AppSettingsViewModel()))
+        _viewModel = StateObject(wrappedValue: SettingsViewModel())
     }
 
     var body: some View {

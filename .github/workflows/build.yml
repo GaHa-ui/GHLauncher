@@ -22,15 +22,32 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             ONLY_ACTIVE_ARCH=NO \
-            build 2>&1 | tail -60
-      - name: Package
+            build
+      - name: Find .app
         run: |
-          APP=$(find build -name "GHLauncher.app" -type d | head -1)
-          echo "App: $APP"
-          ls -la "$APP" 2>/dev/null || echo "Not found"
-          [ -d "$APP" ] && mkdir -p Payload && cp -r "$APP" Payload/ && zip -r GHLauncher.ipa Payload
-          ls -lh GHLauncher.ipa 2>/dev/null || echo "No IPA"
+          echo "=== Searching .app ==="
+          find . -name "*.app" -type d -maxdepth 10 2>/dev/null
+          echo "=== Build dir ==="
+          ls -la build/
+          echo "=== Products ==="
+          ls -la build/Build/Products/ 2>/dev/null || echo "no Products"
+          echo "=== Release ==="
+          ls -la build/Build/Products/Release-iphoneos/ 2>/dev/null || echo "no Release"
+      - name: Package IPA
+        run: |
+          APP=$(find . -name "GHLauncher.app" -type d 2>/dev/null | head -1)
+          echo "Found app at: $APP"
+          if [ -d "$APP" ]; then
+            mkdir -p Payload
+            cp -r "$APP" Payload/
+            zip -r GHLauncher.ipa Payload
+            ls -lh GHLauncher.ipa
+          else
+            echo "No .app found, exiting"
+            exit 0
+          fi
       - uses: actions/upload-artifact@v4
+        if: hashFiles('GHLauncher.ipa') != ''
         with:
           name: GHLauncher.ipa
           path: GHLauncher.ipa

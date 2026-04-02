@@ -23,31 +23,54 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             ONLY_ACTIVE_ARCH=NO \
             build
-      - name: Find .app
+      - name: Package .app and IPA
         run: |
-          echo "=== Searching .app ==="
-          find . -name "*.app" -type d -maxdepth 10 2>/dev/null
-          echo "=== Build dir ==="
-          ls -la build/
-          echo "=== Products ==="
-          ls -la build/Build/Products/ 2>/dev/null || echo "no Products"
-          echo "=== Release ==="
-          ls -la build/Build/Products/Release-iphoneos/ 2>/dev/null || echo "no Release"
-      - name: Package IPA
-        run: |
-          APP=$(find . -name "GHLauncher.app" -type d 2>/dev/null | head -1)
-          echo "Found app at: $APP"
-          if [ -d "$APP" ]; then
-            mkdir -p Payload
-            cp -r "$APP" Payload/
-            zip -r GHLauncher.ipa Payload
-            ls -lh GHLauncher.ipa
-          else
-            echo "No .app found, exiting"
-            exit 0
-          fi
+          BINARY="build/Build/Products/Release-iphoneos/GHLauncher"
+          APP="Payload/GHLauncher.app"
+          mkdir -p "$APP"
+
+          # Copy binary
+          cp "$BINARY" "$APP/GHLauncher"
+          chmod +x "$APP/GHLauncher"
+
+          # Create Info.plist
+          cat > "$APP/Info.plist" << 'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+          <key>CFBundleExecutable</key><string>GHLauncher</string>
+          <key>CFBundleIdentifier</key><string>com.ghlauncher.app</string>
+          <key>CFBundleName</key><string>GHLauncher</string>
+          <key>CFBundleVersion</key><string>1</string>
+          <key>CFBundleShortVersionString</key><string>1.0</string>
+          <key>CFBundlePackageType</key><string>APPL</string>
+          <key>LSRequiresIPhoneOS</key><true/>
+          <key>UIDeviceFamily</key><array><integer>1</integer><integer>2</integer></array>
+          <key>UIApplicationSceneManifest</key><dict>
+          <key>UIApplicationSupportsMultipleScenes</key><false/>
+          </dict>
+          <key>UILaunchScreen</key><dict>
+          <key>UIColorName</key><string></string>
+          </dict>
+          <key>UISupportedInterfaceOrientations</key><array>
+          <string>UIInterfaceOrientationPortrait</string>
+          <string>UIInterfaceOrientationLandscapeLeft</string>
+          <string>UIInterfaceOrientationLandscapeRight</string>
+          </array>
+          </dict></plist>
+          PLIST
+
+          # Copy Swift runtime support (from SPM)
+          cp -r build/Build/Products/Release-iphoneos/GHLauncher.swiftmodule/ "$APP/" 2>/dev/null || true
+
+          # Ad-hoc sign
+          codesign --force --sign - "$APP"
+
+          # Create IPA
+          zip -r GHLauncher.ipa Payload
+          ls -lh GHLauncher.ipa
+          rm -rf Payload
       - uses: actions/upload-artifact@v4
-        if: hashFiles('GHLauncher.ipa') != ''
         with:
           name: GHLauncher.ipa
           path: GHLauncher.ipa
